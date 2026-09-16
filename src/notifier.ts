@@ -10,6 +10,8 @@ export async function sendDiscordNotification(
   persona: string,
   job: RawJob,
   evaluation: MatchEvaluation,
+  strongMatchTreshold = 90,
+  goodMatchTreshold = 80,
 ): Promise<void> {
   const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
   if (!webhookUrl) {
@@ -17,8 +19,13 @@ export async function sendDiscordNotification(
     return;
   }
 
-  // Color code: Green for strong match (80+), Amber for moderate match (60-79)
-  const embedColor = evaluation.matchScore >= 80 ? 0x2ecc71 : 0xf1c40f;
+  // Color code: Green for strong match (90+), Amber for good match (80+), Red for moderate match
+  const embedColor =
+    evaluation.matchScore >= strongMatchTreshold
+      ? 0x2ecc71 // Green
+      : evaluation.matchScore >= goodMatchTreshold
+        ? 0xf1c40f // Amber
+        : 0xe74c3c; // Red
 
   const fields: DiscordEmbedField[] = [
     {

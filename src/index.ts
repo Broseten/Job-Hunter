@@ -3,11 +3,12 @@ import * as fs from "fs";
 import * as path from "path";
 import { fetchAllRemoteEUJobs, filterJobsForPersona } from "./fetchJobs.js";
 import { filterUnseenJobs, markJobAsSeen } from "./storage.js";
-import { evaluateJob } from "./matcher.js";
 import { sendDiscordNotification } from "./notifier.js";
+import { evaluateJob } from "./matcher/matcher.js";
+import { getDynamicThresholds } from "./utils.js";
 
 const PERSONAS = ["simulation", "agentic", "creative-rd"];
-const SCORE_THRESHOLD = 65;
+const SCORE_THRESHOLDS = getDynamicThresholds(75);
 
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
@@ -60,9 +61,15 @@ async function run() {
 
       markJobAsSeen(job.id);
 
-      if (evaluation.matchScore >= SCORE_THRESHOLD) {
+      if (evaluation.matchScore >= SCORE_THRESHOLDS.base) {
         console.log(`🔥 Match (${evaluation.matchScore}/100): ${job.title} @ ${job.company}`);
-        await sendDiscordNotification(persona, job, evaluation);
+        await sendDiscordNotification(
+          persona,
+          job,
+          evaluation,
+          SCORE_THRESHOLDS.strong,
+          SCORE_THRESHOLDS.good,
+        );
       }
 
       await sleep(1500); // Respect free-tier rate limit
