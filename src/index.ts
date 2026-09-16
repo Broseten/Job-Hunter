@@ -7,7 +7,7 @@ import { sendDiscordNotification } from "./notifier.js";
 import { evaluateJob } from "./matcher/matcher.js";
 import { getDynamicThresholds } from "./utils.js";
 
-const PERSONAS = ["simulation", "agentic", "creative-rd"];
+const PERSONAS = ["simulation", "creative-rd", "agentic"];
 const SCORE_THRESHOLDS = getDynamicThresholds(75);
 
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
@@ -18,7 +18,7 @@ async function run() {
     process.exit(1);
   }
 
-  // 1. Fetch from all sources once and normalize
+  // Fetch from all sources once and normalize
   const allAvailableJobs = await fetchAllRemoteEUJobs();
 
   for (const persona of PERSONAS) {
@@ -33,23 +33,17 @@ async function run() {
     }
     const candidateProfile = fs.readFileSync(profilePath, "utf-8");
 
-    // 2. Filter pool by persona's title and content keywords
+    // Filter pool by persona's title and content keywords
     const personaMatchedJobs = await filterJobsForPersona(allAvailableJobs, persona);
     console.log(`Found ${personaMatchedJobs.length} candidate roles for "${persona}".`);
 
-    // 3. Scope ID by persona
-    const scopedJobs = personaMatchedJobs.map((job) => ({
-      ...job,
-      id: `${persona}:${job.id}`,
-    }));
-
-    // 4. Exclude previously seen jobs
-    const unseenJobs = filterUnseenJobs(scopedJobs);
+    // Exclude previously seen jobs using shared job IDs across personas
+    const unseenJobs = filterUnseenJobs(personaMatchedJobs);
     console.log(`${unseenJobs.length} unseen postings to analyze with AI.`);
 
     if (unseenJobs.length === 0) continue;
 
-    // 5. Evaluate with Gemini
+    // Evaluate with Gemini
     for (const job of unseenJobs) {
       console.log(`Analyzing: ${job.title} @ ${job.company}...`);
       const evaluation = await evaluateJob(candidateProfile, job);
