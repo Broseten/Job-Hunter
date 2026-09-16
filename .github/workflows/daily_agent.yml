@@ -1,0 +1,62 @@
+name: Daily Job Matcher Agent
+
+on:
+  schedule:
+    # Runs every day at 07:00 UTC (9:00 AM CEST)
+    - cron: '0 7 * * *'
+  # Allows you to trigger the workflow manually from the GitHub UI at any time
+  workflow_dispatch:
+
+# Explicit permissions to allow pushing the updated seen_ids.json
+permissions:
+  contents: write
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history so pushing works reliably
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Job Matcher Agent
+        run: pnpm start
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+      - name: Commit and push updated seen_ids.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Pull latest remote changes in case something was pushed during runtime
+          git pull --rebase
+
+          git add seen_ids.json
+          
+          # Only commit if seen_ids.json actually changed
+          if git diff --staged --quiet; then
+            echo "No new jobs seen; skipping commit."
+          else
+            git commit -m "chore: update seen job IDs [skip ci]"
+            git push
+          fi
