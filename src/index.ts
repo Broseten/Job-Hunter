@@ -37,8 +37,8 @@ async function run() {
     const personaMatchedJobs = await filterJobsForPersona(allAvailableJobs, persona);
     console.log(`Found ${personaMatchedJobs.length} candidate roles for "${persona}".`);
 
-    // Exclude previously seen jobs using shared job IDs across personas
-    const unseenJobs = filterUnseenJobs(personaMatchedJobs);
+    // Await the Redis pipeline check
+    const unseenJobs = await filterUnseenJobs(personaMatchedJobs);
     console.log(`${unseenJobs.length} unseen postings to analyze with AI.`);
 
     if (unseenJobs.length === 0) continue;
@@ -53,7 +53,8 @@ async function run() {
         continue;
       }
 
-      markJobAsSeen(job.id);
+      // Await persisting the key to Upstash Redis
+      await markJobAsSeen(job.id);
 
       if (evaluation.matchScore >= SCORE_THRESHOLDS.base) {
         console.log(`🔥 Match (${evaluation.matchScore}/100): ${job.title} @ ${job.company}`);
@@ -73,4 +74,7 @@ async function run() {
   console.log("\nPipeline finished!");
 }
 
-run();
+run().catch((err) => {
+  console.error("Unhandled error during pipeline run:", err);
+  process.exit(1);
+});

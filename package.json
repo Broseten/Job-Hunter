@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.22.0",
+    "@upstash/redis": "^1.38.4",
     "dotenv": "^17.4.2"
   },
   "devDependencies": {

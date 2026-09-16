@@ -7,10 +7,6 @@ on:
   # Allows you to trigger the workflow manually from the GitHub UI at any time
   workflow_dispatch:
 
-# Explicit permissions to allow pushing the updated seen_ids.json
-permissions:
-  contents: write
-
 jobs:
   run-agent:
     runs-on: ubuntu-latest
@@ -18,9 +14,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          # Fetch full history so pushing works reliably
-          fetch-depth: 0
 
       # Remove any accidental empty workspace file that breaks pnpm CLI commands
       - name: Clean up empty workspace file if present
@@ -61,24 +54,5 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-
-      - name: Commit and push updated seen_ids.json
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Pull latest remote changes in case something was pushed during runtime
-          git pull --rebase
-
-          # Track seen_ids.json if it exists
-          if [ -f seen_ids.json ]; then
-            git add seen_ids.json
-          fi
-
-          # Only commit if seen_ids.json actually changed
-          if git diff --staged --quiet; then
-            echo "No new jobs seen; skipping commit."
-          else
-            git commit -m "chore: update seen job IDs [skip ci]"
-            git push
-          fi
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
