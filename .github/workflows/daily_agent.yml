@@ -3,7 +3,7 @@ name: Daily Job Matcher Agent
 on:
   schedule:
     # Runs every day at 07:00 UTC (9:00 AM CEST)
-    - cron: '0 7 * * *'
+    - cron: "0 7 * * *"
   # Allows you to trigger the workflow manually from the GitHub UI at any time
   workflow_dispatch:
 
@@ -22,17 +22,36 @@ jobs:
           # Fetch full history so pushing works reliably
           fetch-depth: 0
 
+      # Remove any accidental empty workspace file that breaks pnpm CLI commands
+      - name: Clean up empty workspace file if present
+        run: |
+          if [ -f pnpm-workspace.yaml ] && ! grep -q "packages:" pnpm-workspace.yaml; then
+            rm -f pnpm-workspace.yaml
+          fi
+
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
           run_install: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: 'pnpm'
+          node-version: 22
+
+      - name: Expose pnpm store path
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent || echo ~/.local/share/pnpm/store)" >> $GITHUB_ENV
+
+      - name: Restore pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -47,12 +66,15 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           # Pull latest remote changes in case something was pushed during runtime
           git pull --rebase
 
-          git add seen_ids.json
-          
+          # Track seen_ids.json if it exists
+          if [ -f seen_ids.json ]; then
+            git add seen_ids.json
+          fi
+
           # Only commit if seen_ids.json actually changed
           if git diff --staged --quiet; then
             echo "No new jobs seen; skipping commit."
